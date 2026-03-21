@@ -1,0 +1,551 @@
+@model NoteAppCore.Models.NotesIndexViewModel
+@{
+    ViewData["Title"] = "Mis Notas";
+    var categories = NoteAppCore.Models.NotesIndexViewModel.Categories;
+    var catLabels = new Dictionary<string, string>
+    {
+        ["personal"] = "Personal", ["trabajo"] = "Trabajo",
+        ["ideas"]    = "Ideas",    ["urgente"]  = "Urgente", ["otro"] = "Otro"
+    };
+}
+
+<style>
+    /* ── Design tokens ── */
+    :root {
+        --na-bg:       #0f0f13;
+        --na-surface:  #1a1a24;
+        --na-surf2:    #22222f;
+        --na-border:   #2e2e42;
+        --na-accent:   #7c6bff;
+        --na-acc2:     #a78bfa;
+        --na-text:     #e8e8f0;
+        --na-muted:    #6b6b85;
+        --na-danger:   #ff5e7a;
+        --c-personal:  #7c6bff;
+        --c-trabajo:   #34d399;
+        --c-ideas:     #fbbf24;
+        --c-urgente:   #ff5e7a;
+        --c-otro:      #6b6b85;
+    }
+
+    /* ── Page shell ── */
+    body { background: var(--na-bg) !important; color: var(--na-text) !important; }
+
+    .na-wrap { display: flex; gap: 0; min-height: calc(100vh - 60px); }
+
+    /* ── Sidebar ── */
+    .na-sidebar {
+        width: 210px; flex-shrink: 0;
+        background: var(--na-surface);
+        border-right: 1px solid var(--na-border);
+        padding: 20px 10px;
+    }
+    .na-sidebar-label {
+        font-size: .68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .08em; color: var(--na-muted); padding: 4px 10px 8px;
+    }
+    .na-filter {
+        display: flex; align-items: center; gap: 8px; width: 100%;
+        background: none; border: none; border-radius: 8px;
+        padding: 9px 10px; text-align: left; cursor: pointer;
+        color: var(--na-muted); font-size: .875rem;
+        transition: background .15s, color .15s;
+    }
+    .na-filter:hover { background: var(--na-surf2); color: var(--na-text); }
+    .na-filter.active { background: var(--na-surf2); color: var(--na-acc2); font-weight: 600; }
+    .na-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .na-cnt {
+        margin-left: auto; background: var(--na-surf2); color: var(--na-muted);
+        font-size: .7rem; border-radius: 999px; padding: 1px 7px; min-width: 22px; text-align: center;
+    }
+    .na-filter.active .na-cnt { background: var(--na-accent); color: #fff; }
+
+    /* ── Main area ── */
+    .na-main { flex: 1; padding: 24px; }
+    .na-topbar {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+        margin-bottom: 20px;
+    }
+    .na-topbar-title { font-size: 1.1rem; font-weight: 700; }
+
+    /* search */
+    .na-search-wrap { position: relative; flex: 1; max-width: 340px; }
+    .na-search-wrap svg {
+        position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+        width: 15px; height: 15px; color: var(--na-muted); pointer-events: none;
+    }
+    .na-search {
+        width: 100%; background: var(--na-surf2); border: 1px solid var(--na-border);
+        border-radius: 8px; padding: 8px 12px 8px 34px; color: var(--na-text);
+        font-size: .875rem; outline: none; transition: border-color .2s;
+    }
+    .na-search:focus { border-color: var(--na-accent); }
+    .na-search::placeholder { color: var(--na-muted); }
+
+    /* sort */
+    .na-sort {
+        background: var(--na-surf2); border: 1px solid var(--na-border);
+        border-radius: 8px; color: var(--na-text); padding: 8px 12px;
+        font-size: .85rem; outline: none; cursor: pointer;
+    }
+    .na-sort option { background: var(--na-surf2); }
+
+    /* btn new */
+    .na-btn-new {
+        background: var(--na-accent); color: #fff; border: none;
+        border-radius: 8px; padding: 8px 18px; font-size: .9rem; font-weight: 600;
+        cursor: pointer; display: flex; align-items: center; gap: 6px;
+        transition: background .2s; white-space: nowrap; margin-left: auto;
+    }
+    .na-btn-new:hover { background: #6a57f0; color: #fff; }
+
+    /* ── Grid ── */
+    .na-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+        gap: 16px;
+    }
+
+    /* ── Card ── */
+    .na-card {
+        background: var(--na-surface); border: 1px solid var(--na-border);
+        border-radius: 12px; padding: 0; overflow: hidden;
+        display: flex; flex-direction: column;
+        transition: border-color .2s, transform .15s, box-shadow .2s;
+        cursor: pointer;
+    }
+    .na-card:hover {
+        border-color: var(--na-accent); transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(124,107,255,.12);
+    }
+    .na-card-accent { height: 3px; width: 100%; }
+    .na-card-body { padding: 16px 18px; flex: 1; }
+    .na-card-title { font-size: .95rem; font-weight: 600; margin-bottom: 8px; word-break: break-word; }
+    .na-card-text {
+        font-size: .83rem; color: var(--na-muted); line-height: 1.6;
+        display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+        overflow: hidden; word-break: break-word;
+    }
+    .na-card-footer {
+        padding: 10px 18px 14px;
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .na-badge {
+        font-size: .68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .06em; padding: 3px 9px; border-radius: 999px;
+    }
+    .na-badge-personal { background: rgba(124,107,255,.18); color: #a78bfa; }
+    .na-badge-trabajo  { background: rgba(52,211,153,.18);  color: #34d399; }
+    .na-badge-ideas    { background: rgba(251,191,36,.18);  color: #fbbf24; }
+    .na-badge-urgente  { background: rgba(255,94,122,.18);  color: #ff5e7a; }
+    .na-badge-otro     { background: rgba(107,107,133,.18); color: #9898b8; }
+    .na-date { font-size: .72rem; color: var(--na-muted); }
+    .na-card-actions { display: flex; gap: 4px; }
+    .na-icon-btn {
+        background: none; border: none; border-radius: 6px;
+        padding: 4px 7px; cursor: pointer; color: var(--na-muted);
+        font-size: .9rem; transition: background .15s, color .15s;
+    }
+    .na-icon-btn:hover { background: var(--na-surf2); color: var(--na-text); }
+    .na-icon-btn.del:hover { color: var(--na-danger); }
+
+    /* ── Empty state ── */
+    .na-empty { text-align: center; padding: 80px 20px; color: var(--na-muted); }
+    .na-empty .na-empty-icon { font-size: 2.8rem; margin-bottom: 12px; }
+
+    /* ── Modals ── */
+    .modal-content {
+        background: var(--na-surface) !important;
+        border: 1px solid var(--na-border) !important;
+        border-radius: 16px !important; color: var(--na-text) !important;
+    }
+    .modal-header {
+        border-bottom: 1px solid var(--na-border) !important;
+        padding: 20px 24px !important;
+    }
+    .modal-body { padding: 20px 24px !important; }
+    .modal-footer {
+        border-top: 1px solid var(--na-border) !important;
+        padding: 16px 24px !important;
+    }
+    .modal-title { font-weight: 700; font-size: 1.1rem; }
+    .btn-close { filter: invert(1) !important; }
+
+    .na-label {
+        font-size: .75rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .06em; color: var(--na-muted); display: block; margin-bottom: 6px;
+    }
+    .na-input, .na-textarea, .na-select {
+        width: 100%; background: var(--na-surf2); border: 1px solid var(--na-border);
+        border-radius: 8px; color: var(--na-text); font-size: .9rem;
+        padding: 10px 14px; outline: none; font-family: inherit;
+        transition: border-color .2s;
+    }
+    .na-input:focus, .na-textarea:focus, .na-select:focus { border-color: var(--na-accent); }
+    .na-input::placeholder, .na-textarea::placeholder { color: var(--na-muted); }
+    .na-textarea { resize: vertical; min-height: 130px; line-height: 1.6; }
+    .na-select option { background: var(--na-surf2); }
+
+    .na-btn-cancel {
+        background: var(--na-surf2); border: 1px solid var(--na-border);
+        color: var(--na-text); border-radius: 8px; padding: 8px 18px;
+        font-size: .9rem; cursor: pointer; transition: background .2s;
+    }
+    .na-btn-cancel:hover { background: var(--na-border); }
+    .na-btn-save {
+        background: var(--na-accent); border: none; color: #fff;
+        border-radius: 8px; padding: 8px 20px; font-size: .9rem;
+        font-weight: 600; cursor: pointer; transition: background .2s;
+    }
+    .na-btn-save:hover { background: #6a57f0; }
+    .na-btn-del {
+        background: var(--na-danger); border: none; color: #fff;
+        border-radius: 8px; padding: 8px 20px; font-size: .9rem;
+        font-weight: 600; cursor: pointer; transition: background .2s;
+    }
+    .na-btn-del:hover { background: #e04060; }
+
+    /* view modal */
+    .na-view-body {
+        font-size: .9rem; line-height: 1.75; color: #cccce0;
+        white-space: pre-wrap; word-break: break-word;
+        background: var(--na-surf2); border-radius: 8px; padding: 14px;
+        max-height: 340px; overflow-y: auto;
+    }
+
+    /* error alert */
+    .na-alert {
+        background: rgba(255,94,122,.12); border: 1px solid rgba(255,94,122,.3);
+        border-radius: 8px; color: #ff7a95; padding: 10px 14px;
+        margin-bottom: 18px; font-size: .875rem;
+    }
+
+    @@media (max-width: 640px) {
+        .na-sidebar { display: none; }
+        .na-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+@if (TempData["Error"] is string err)
+{
+    <div class="na-alert">⚠ @err</div>
+}
+
+<div class="na-wrap">
+
+  <!-- ── Sidebar ── -->
+  <aside class="na-sidebar">
+    <div class="na-sidebar-label">Filtros</div>
+
+    <a href="@Url.Action("Index", new { q = Model.SearchQuery, sort = Model.SortBy })"
+       class="na-filter @(string.IsNullOrEmpty(Model.CategoryFilter) || Model.CategoryFilter == "todas" ? "active" : "")">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7" rx="1"/>
+            <rect x="14" y="3" width="7" height="7" rx="1"/>
+            <rect x="3" y="14" width="7" height="7" rx="1"/>
+            <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        Todas
+        <span class="na-cnt">@Model.TotalCount</span>
+    </a>
+
+    <div class="na-sidebar-label" style="margin-top:10px">Categorías</div>
+
+    @foreach (var cat in categories)
+    {
+        var isActive = Model.CategoryFilter == cat ? "active" : "";
+        <a href="@Url.Action("Index", new { q = Model.SearchQuery, category = cat, sort = Model.SortBy })"
+           class="na-filter @isActive">
+            <div class="na-dot" style="background:var(--c-@cat)"></div>
+            @catLabels[cat]
+            <span class="na-cnt">@Model.CountFor(cat)</span>
+        </a>
+    }
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="na-main">
+    <!-- Topbar -->
+    <div class="na-topbar">
+        <div class="na-topbar-title">
+            @(string.IsNullOrEmpty(Model.CategoryFilter) || Model.CategoryFilter == "todas"
+                ? "Todas las notas" : catLabels.GetValueOrDefault(Model.CategoryFilter!, "Notas"))
+        </div>
+
+        <div class="na-search-wrap">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input class="na-search" id="searchInput" type="text"
+                   placeholder="Buscar notas…" value="@Model.SearchQuery"
+                   data-action="@Url.Action("Index")"
+                   data-category="@Model.CategoryFilter"
+                   data-sort="@Model.SortBy" />
+        </div>
+
+        <select class="na-sort" id="sortSelect"
+                data-action="@Url.Action("Index")"
+                data-q="@Model.SearchQuery"
+                data-category="@Model.CategoryFilter">
+            <option value="newest" selected="@(Model.SortBy is null or "newest")">Más recientes</option>
+            <option value="oldest" selected="@(Model.SortBy == "oldest")">Más antiguas</option>
+            <option value="title"  selected="@(Model.SortBy == "title")">Título A-Z</option>
+        </select>
+
+        <button class="na-btn-new" data-bs-toggle="modal" data-bs-target="#createModal">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path d="M12 5v14M5 12h14"/>
+            </svg>
+            Nueva nota
+        </button>
+    </div>
+
+    <!-- Grid -->
+    @if (!Model.Notes.Any())
+    {
+        <div class="na-empty">
+            <div class="na-empty-icon">🗒️</div>
+            <p>@(string.IsNullOrEmpty(Model.SearchQuery)
+                ? "No hay notas aquí. ¡Crea una nueva!"
+                : "No se encontraron notas para esa búsqueda.")</p>
+        </div>
+    }
+    else
+    {
+        <div class="na-grid">
+        @foreach (var note in Model.Notes)
+        {
+            <div class="na-card" onclick="openView('@note.Id','@System.Text.Json.JsonSerializer.Serialize(note.Title)','@note.Category','@note.CreatedAt.ToString("dd MMM yyyy, HH:mm")','@System.Text.Json.JsonSerializer.Serialize(note.Content)')">
+                <div class="na-card-accent" style="background:var(--c-@note.Category)"></div>
+                <div class="na-card-body">
+                    <div class="na-card-title">@(string.IsNullOrWhiteSpace(note.Title) ? "(sin título)" : note.Title)</div>
+                    @if (!string.IsNullOrWhiteSpace(note.Content))
+                    {
+                        <div class="na-card-text">@note.Content</div>
+                    }
+                </div>
+                <div class="na-card-footer">
+                    <span class="na-badge na-badge-@note.Category">@catLabels[note.Category]</span>
+                    <span class="na-date">@note.CreatedAt.ToString("dd MMM yyyy")</span>
+                    <div class="na-card-actions" onclick="event.stopPropagation()">
+                        <button class="na-icon-btn" title="Editar"
+                                onclick="openEdit('@note.Id','@System.Text.Json.JsonSerializer.Serialize(note.Title)','@note.Category','@System.Text.Json.JsonSerializer.Serialize(note.Content)')">✏️</button>
+                        <button class="na-icon-btn del" title="Eliminar"
+                                onclick="openDelete('@note.Id', '@System.Text.Json.JsonSerializer.Serialize(note.Title)')">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        }
+        </div>
+    }
+  </div>
+</div>
+
+<!-- ═══ Modal: Crear nota ═══ -->
+<div class="modal fade" id="createModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Nueva nota</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form asp-controller="Notes" asp-action="Create" method="post">
+        @Html.AntiForgeryToken()
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <label class="na-label" for="c-title">Título</label>
+            <input class="na-input" id="c-title" name="title" type="text"
+                   placeholder="Dale un título a tu nota…" maxlength="120" autocomplete="off" />
+          </div>
+          <div>
+            <label class="na-label" for="c-content">Contenido</label>
+            <textarea class="na-textarea" id="c-content" name="content"
+                      placeholder="Escribe tu nota aquí…"></textarea>
+          </div>
+          <div>
+            <label class="na-label" for="c-category">Categoría</label>
+            <select class="na-select" id="c-category" name="category">
+                @foreach (var cat in categories)
+                {
+                    <option value="@cat">@catLabels[cat]</option>
+                }
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="na-btn-cancel" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="na-btn-save">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: Editar nota ═══ -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar nota</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form asp-controller="Notes" asp-action="Edit" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" id="e-id" name="id" />
+        <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <label class="na-label" for="e-title">Título</label>
+            <input class="na-input" id="e-title" name="title" type="text" maxlength="120" autocomplete="off" />
+          </div>
+          <div>
+            <label class="na-label" for="e-content">Contenido</label>
+            <textarea class="na-textarea" id="e-content" name="content"></textarea>
+          </div>
+          <div>
+            <label class="na-label" for="e-category">Categoría</label>
+            <select class="na-select" id="e-category" name="category">
+                @foreach (var cat in categories)
+                {
+                    <option value="@cat">@catLabels[cat]</option>
+                }
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="na-btn-cancel" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="na-btn-save">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: Ver nota ═══ -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="v-title"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="na-badge" id="v-badge"></span>
+          <span class="na-date" id="v-date"></span>
+        </div>
+        <div class="na-view-body" id="v-body"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="na-btn-cancel" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="na-btn-save" id="v-edit-btn">Editar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal: Eliminar ═══ -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content text-center">
+      <div class="modal-header" style="justify-content:center;border:none">
+        <h5 class="modal-title">¿Eliminar nota?</h5>
+      </div>
+      <div class="modal-body" style="color:var(--na-muted);font-size:.875rem;padding-top:0!important">
+        <p id="d-note-name" style="font-weight:600;color:var(--na-text);margin-bottom:6px"></p>
+        Esta acción no se puede deshacer.
+      </div>
+      <form asp-controller="Notes" asp-action="Delete" method="post">
+        @Html.AntiForgeryToken()
+        <input type="hidden" id="d-id" name="id" />
+        <div class="modal-footer" style="justify-content:center">
+          <button type="button" class="na-btn-cancel" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="na-btn-del">Eliminar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+@section Scripts {
+<script>
+  // ── Counts for sidebar (all notes, unfiltered) ──
+  // Rendered server-side but sidebar always shows full counts
+  // The sidebar links re-filter server-side, so counts are always accurate.
+
+  // ── Search (debounced) ──
+  let searchTimer;
+  document.getElementById('searchInput').addEventListener('input', function () {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      const params = new URLSearchParams({
+        q: this.value,
+        category: this.dataset.category || '',
+        sort: this.dataset.sort || ''
+      });
+      window.location = this.dataset.action + '?' + params;
+    }, 350);
+  });
+
+  // ── Sort ──
+  document.getElementById('sortSelect').addEventListener('change', function () {
+    const params = new URLSearchParams({
+      q: this.dataset.q || '',
+      category: this.dataset.category || '',
+      sort: this.value
+    });
+    window.location = this.dataset.action + '?' + params;
+  });
+
+  // ── Open View Modal ──
+  function openView(id, titleJson, category, date, contentJson) {
+    const title   = JSON.parse(titleJson);
+    const content = JSON.parse(contentJson);
+    document.getElementById('v-title').textContent = title || '(sin título)';
+    const badge = document.getElementById('v-badge');
+    badge.textContent  = category;
+    badge.className    = 'na-badge na-badge-' + category;
+    document.getElementById('v-date').textContent  = date;
+    document.getElementById('v-body').textContent  = content || '(sin contenido)';
+    document.getElementById('v-edit-btn').onclick  = () => {
+      bootstrap.Modal.getInstance(document.getElementById('viewModal')).hide();
+      openEdit(id, titleJson, category, contentJson);
+    };
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('viewModal')).show();
+  }
+
+  // ── Open Edit Modal ──
+  function openEdit(id, titleJson, category, contentJson) {
+    document.getElementById('e-id').value       = id;
+    document.getElementById('e-title').value    = JSON.parse(titleJson);
+    document.getElementById('e-content').value  = JSON.parse(contentJson);
+    document.getElementById('e-category').value = category;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('editModal')).show();
+  }
+
+  // ── Open Delete Modal ──
+  function openDelete(id, titleJson) {
+    document.getElementById('d-id').value = id;
+    document.getElementById('d-note-name').textContent = JSON.parse(titleJson) || '(sin título)';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('deleteModal')).show();
+  }
+
+  // ── Keyboard shortcuts ──
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      e.preventDefault();
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('createModal')).show();
+    }
+  });
+
+  // ── Auto-open edit modal if editId was in URL ──
+  @if (Model.EditingNote is { } en)
+  {
+    <text>
+    openEdit('@en.Id',
+      @Html.Raw(System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(en.Title))),
+      '@en.Category',
+      @Html.Raw(System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(en.Content))));
+    </text>
+  }
+</script>
+}
