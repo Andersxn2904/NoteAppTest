@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using NoteAppCore.Data;
 using NoteAppCore.Models;
 
 namespace NoteAppCore.Services
@@ -13,36 +15,42 @@ namespace NoteAppCore.Services
 
     public class NoteService : INoteService
     {
-        private readonly List<Note> _notes = [];
+        private readonly AppDbContext _db;
 
-        public IReadOnlyList<Note> GetAll() => _notes.AsReadOnly();
+        public NoteService(AppDbContext db) => _db = db;
+
+        public IReadOnlyList<Note> GetAll() =>
+            _db.Notes.OrderByDescending(n => n.CreatedAt).ToList();
 
         public Note? GetById(string id) =>
-            _notes.FirstOrDefault(n => n.Id == id);
+            _db.Notes.FirstOrDefault(n => n.Id == id);
 
         public Note Add(string title, string content, string category)
         {
             var note = new Note { Title = title, Content = content, Category = category };
-            _notes.Insert(0, note);
+            _db.Notes.Add(note);
+            _db.SaveChanges();
             return note;
         }
 
         public bool Update(string id, string title, string content, string category)
         {
-            var note = _notes.FirstOrDefault(n => n.Id == id);
+            var note = _db.Notes.FirstOrDefault(n => n.Id == id);
             if (note is null) return false;
             note.Title = title;
             note.Content = content;
             note.Category = category;
             note.UpdatedAt = DateTime.Now;
+            _db.SaveChanges();
             return true;
         }
 
         public bool Delete(string id)
         {
-            var note = _notes.FirstOrDefault(n => n.Id == id);
+            var note = _db.Notes.FirstOrDefault(n => n.Id == id);
             if (note is null) return false;
-            _notes.Remove(note);
+            _db.Notes.Remove(note);
+            _db.SaveChanges();
             return true;
         }
     }

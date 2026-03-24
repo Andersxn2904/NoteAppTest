@@ -8,6 +8,26 @@ services:
       - "8080:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=notasdb;Username=notasuser;Password=notaspass
     volumes:
       - /mnt/data/apps/noteapptest/dpkeys:/root/.aspnet/DataProtection-Keys
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: notasapp-postgres
+    environment:
+      POSTGRES_DB: notasdb
+      POSTGRES_USER: notasuser
+      POSTGRES_PASSWORD: notaspass
+    volumes:
+      - /mnt/data/apps/noteapptest/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notasuser -d notasdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
